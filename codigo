@@ -1,0 +1,80 @@
+// Definição dos pinos
+const int PIN_JOYSTICK_X = 34; // Eixo X do Joystick (Analógico)
+const int PIN_JOYSTICK_Y = 35; // Eixo Y do Joystick (Analógico)
+const int PIN_BTN_DESLIGAR = 23; // Botão de desligar remoto (com Pull-up interno)
+
+const int PIN_LED_VERDE = 18;  // LED Verde: Controle ligado / Conectado
+const int PIN_LED_VERMELHO = 19; // LED Vermelho: Robô desligado / Desconectado
+
+// Limiares para leitura do joystick (ADC de 12 bits: 0 a 4095, centro ~2048)
+const int LIMITE_INFERIOR = 1000;
+const int LIMITE_SUPERIOR = 3000;
+
+// Variáveis de estado
+bool roboLigado = true;
+String ultimoComando = "";
+
+void setup() {
+  Serial.begin(115200);
+
+  // Configuração dos pinos dos LEDs
+  pinMode(PIN_LED_VERDE, OUTPUT);
+  pinMode(PIN_LED_VERMELHO, OUTPUT);
+
+  // Configuração do botão de desligar
+  pinMode(PIN_BTN_DESLIGAR, INPUT_PULLUP);
+
+  // Estado inicial dos LEDs (Robô ligado / Controle funcionando)
+  digitalWrite(PIN_LED_VERDE, HIGH);
+  digitalWrite(PIN_LED_VERMELHO, LOW);
+
+  Serial.println("--- Controle Remoto ESP32 Inicializado ---");
+  Serial.println("Estado do Robô: LIGADO");
+}
+
+void loop() {
+  // 1. Verificação do Botão de Desligar
+  if (digitalRead(PIN_BTN_DESLIGAR) == LOW) {
+    if (roboLigado) {
+      roboLigado = false;
+      
+      // Atualiza os LEDs de status
+      digitalWrite(PIN_LED_VERDE, LOW);
+      digitalWrite(PIN_LED_VERMELHO, HIGH);
+      
+      // Envia comando de desligar e exibe no Monitor Serial
+      Serial.println("Comando enviado: DESLIGAR");
+      Serial.println("Estado do Robô: DESLIGADO (Motores parados)");
+      
+      delay(300); // Debounce simples do botão
+    }
+  }
+
+  // 2. Se o robô estiver LIGADO, lê o Joystick e determina a ação
+  if (roboLigado) {
+    int valorX = analogRead(PIN_JOYSTICK_X);
+    int valorY = analogRead(PIN_JOYSTICK_Y);
+
+    String comandoAtual = "Parado";
+
+    // Lógica das 4 direções
+    if (valorY < LIMITE_INFERIOR) {
+      comandoAtual = "Frente"; // Motores para frente
+    } else if (valorY > LIMITE_SUPERIOR) {
+      comandoAtual = "Trás"; // Motores para trás
+    } else if (valorX < LIMITE_INFERIOR) {
+      comandoAtual = "Esquerda"; // Motor direito ativo
+    } else if (valorX > LIMITE_SUPERIOR) {
+      comandoAtual = "Direita"; // Motor esquerdo ativo
+    }
+
+    // Exibe no Monitor Serial quando houver alteração do comando ou de forma contínua
+    if (comandoAtual != ultimoComando) {
+      Serial.print("Comando: ");
+      Serial.println(comandoAtual);
+      ultimoComando = comandoAtual;
+    }
+  }
+
+  delay(100); // Pequeno intervalo entre leituras
+}
